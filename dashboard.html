@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Victim Detection System</title>
+
+    <style>
+      /* --- 1. SETUP VARIABEL WARNA (Sesuai Desain) --- */
+      :root {
+        --bg-dark: #121212; /* Background paling belakang */
+        --bg-panel: #1e1e24; /* Warna panel/kotak */
+        --text-white: #ffffff;
+        --text-gray: #a0a0a0;
+
+        /* Warna Aksen */
+        --cyan: #00bcd4; /* Tombol Auto/Connect */
+        --cyan-dark: #008ba3;
+        --green: #558b2f; /* Tombol Start */
+        --purple: #7b1fa2; /* Tombol Thermal */
+        --red: #d32f2f; /* Alert/Kotak Deteksi */
+      }
+
+      body {
+        background-color: var(--bg-dark);
+        color: var(--text-white);
+        font-family: "Segoe UI", Roboto, sans-serif;
+        margin: 0;
+        padding: 20px;
+
+        /* Ganti height jadi min-height agar bisa memanjang ke bawah */
+        min-height: 100vh;
+
+        box-sizing: border-box;
+
+        /* Ubah hidden menjadi auto agar bisa discroll */
+        overflow-y: auto;
+      }
+
+      /* --- 2. HEADER --- */
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #333;
+      }
+      .logo-area {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+      .logo-box {
+        background: white;
+        color: black;
+        padding: 5px 12px;
+        font-weight: 800;
+        border-radius: 4px;
+        letter-spacing: 1px;
+      }
+      h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .btn-connect {
+        background-color: var(--cyan);
+        color: white;
+        border: none;
+        padding: 10px 30px;
+        border-radius: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(0, 188, 212, 0.4);
+        transition: 0.3s;
+      }
+      .btn-connect:hover {
+        background-color: var(--cyan-dark);
+      }
+      .btn-connect.connected {
+        background-color: var(--red);
+        box-shadow: 0 0 10px rgba(211, 47, 47, 0.4);
+      }
+
+      /* --- 3. LAYOUT GRID UTAMA --- */
+      .main-grid {
+        display: grid;
+        grid-template-columns: 260px 1fr 320px; /* Kiri - Tengah - Kanan */
+        gap: 25px;
+        height: calc(100vh - 100px);
+      }
+
+      /* --- 4. STYLE PANEL UMUM --- */
+      .panel {
+        background-color: var(--bg-panel);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+      .panel-title {
+        display: block;
+        color: var(--text-gray);
+        font-size: 14px;
+        margin-bottom: 15px;
+        font-weight: 600;
+      }
+
+      /* --- 5. SIDEBAR KIRI (CONTROLS) --- */
+      .sidebar-left {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      .btn-ctrl {
+        display: block;
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 10px;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        text-align: center;
+        transition: transform 0.1s;
+      }
+      .btn-ctrl:active {
+        transform: scale(0.98);
+      }
+
+      .btn-blue {
+        background: linear-gradient(90deg, #00838f, #00acc1);
+      }
+      .btn-green {
+        background: linear-gradient(90deg, #2e7d32, #43a047);
+      }
+      .btn-purple {
+        background: linear-gradient(90deg, #6a1b9a, #8e24aa);
+      }
+      .btn-outline {
+        background: transparent;
+        border: 1px solid var(--cyan);
+        color: var(--cyan);
+      }
+
+      /* Mic Box */
+      .mic-box {
+        margin-top: auto;
+        background: #25252d;
+        border-radius: 20px;
+        text-align: center;
+        padding: 30px;
+        border: 1px solid #333;
+      }
+      .mic-icon {
+        font-size: 40px;
+        color: var(--cyan);
+        margin-bottom: 10px;
+      }
+
+      /* --- 6. TENGAH (VIDEO & STATS) --- */
+      .center-col {
+        display: grid;
+        grid-template-rows: 1.8fr 1fr;
+        gap: 20px;
+      }
+
+      /* Video Container */
+      .video-wrapper {
+        background: black;
+        border-radius: 16px;
+        position: relative;
+        overflow: hidden;
+        border: 2px solid #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .video-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.8;
+        transition: opacity 0.5s;
+      }
+
+      /* Overlay Elements (Hanya muncul saat connect) */
+      .overlay-elements {
+        display: none; /* Sembunyi saat disconnect */
+      }
+
+      .crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 80px;
+        color: red;
+        font-weight: 100;
+      }
+      .bounding-box {
+        position: absolute;
+        border: 3px solid var(--red);
+        box-shadow: 0 0 10px var(--red);
+        width: 50px;
+        height: 80px;
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+
+      .overlay-card {
+        position: absolute;
+        bottom: 20px;
+        background: rgba(30, 30, 35, 0.9);
+        padding: 12px 20px;
+        border-radius: 12px;
+        backdrop-filter: blur(5px);
+        border: 1px solid #444;
+        min-width: 140px;
+      }
+      .card-left {
+        left: 20px;
+      }
+      .card-right {
+        right: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .drone-icon-circle {
+        background: #444;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Stats Panel */
+      .stats-wrapper {
+        background: var(--bg-panel);
+        border-radius: 16px;
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 30px;
+      }
+      .flight-mode {
+        color: var(--green);
+        font-size: 22px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        display: block;
+      }
+
+      .telemetry-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+      }
+      .val-box .val {
+        font-size: 24px;
+        font-weight: bold;
+      }
+      .val-box .unit {
+        font-size: 14px;
+        color: var(--text-gray);
+      }
+      .val-box .lbl {
+        font-size: 12px;
+        color: var(--text-gray);
+        display: block;
+        margin-top: 2px;
+      }
+
+      /* Detection Data List */
+      .detect-list .row {
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 1px solid #333;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+        font-size: 12px;
+      }
+      .conf-score {
+        color: #ffeb3b;
+        font-weight: bold;
+      }
+
+      /* --- 7. SIDEBAR KANAN (LOG) --- */
+      .sidebar-right {
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .log-container {
+        overflow-y: auto;
+        flex: 1;
+        padding-right: 5px;
+      }
+
+      .log-item {
+        background: #25252d;
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        border-left: 4px solid var(--red);
+        position: relative;
+      }
+      .log-header {
+        display: flex;
+        justify-content: space-between;
+        font-weight: bold;
+        font-size: 14px;
+        margin-bottom: 5px;
+      }
+      .red-dot {
+        color: var(--red);
+        margin-right: 5px;
+      }
+      .log-meta {
+        font-size: 11px;
+        color: var(--text-gray);
+        margin-bottom: 8px;
+      }
+      .log-img {
+        width: 100%;
+        height: 90px;
+        background: #333;
+        object-fit: cover;
+        border-radius: 6px;
+        opacity: 0.8;
+      }
+
+      /* Scrollbar Custom */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg-dark);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #444;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo-area">
+        <div class="logo-box">SAV</div>
+        <h2>Victim Detection & Geolocation System</h2>
+      </div>
+      <div style="display: flex; align-items: center; gap: 20px">
+        <button class="btn-connect" id="btnConnect" onclick="toggleConnection()">🔊 Connect</button>
+        <span style="color: var(--text-gray); cursor: pointer">Main Dashboard ☰</span>
+      </div>
+    </header>
+
+    <div class="main-grid">
+      <aside class="sidebar-left">
+        <div class="panel">
+          <span class="panel-title">Detection Mode</span>
+          <button class="btn-ctrl btn-blue">Auto Detect</button>
+          <button class="btn-ctrl btn-blue">Manual Review</button>
+          <button class="btn-ctrl btn-blue">Thermal Review</button>
+          <button class="btn-ctrl btn-purple">Thermal</button>
+        </div>
+
+        <div class="panel">
+          <span class="panel-title">Processing Control</span>
+          <button class="btn-ctrl btn-green">Start Analysis</button>
+          <button class="btn-ctrl btn-outline">Calibrate</button>
+          <button class="btn-ctrl btn-outline">Export Data</button>
+          <button class="btn-ctrl btn-outline">Report</button>
+        </div>
+
+        <div class="mic-box">
+          <div class="mic-icon">🎤</div>
+          <small style="color: gray">Command Voice</small>
+        </div>
+      </aside>
+
+      <main class="center-col">
+        <div class="video-wrapper">
+          <img id="feedImage" src="https://placehold.co/800x450/000000/333333?text=NO+SIGNAL+%2F+DISCONNECTED&font=roboto" class="video-img" />
+
+          <div class="overlay-elements" id="overlays">
+            <div class="crosshair">+</div>
+
+            <div class="bounding-box" style="top: 30%; left: 40%"></div>
+            <div class="bounding-box" style="top: 50%; left: 70%"></div>
+            <div class="bounding-box" style="top: 60%; left: 20%"></div>
+
+            <div class="overlay-card card-left">
+              <strong style="display: block; margin-bottom: 5px">Plan Summary</strong>
+              <small style="color: #ccc">📍 8 Waypoints</small><br />
+              <small style="color: #ccc">⚡ 2296.0 m</small>
+            </div>
+
+            <div class="overlay-card card-right">
+              <div class="drone-icon-circle">🚁</div>
+              <div>
+                <small style="color: #ccc">Next :</small><br />
+                <strong>Waypoint 3</strong><br />
+                <small>🏁 89 m</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-wrapper">
+          <div>
+            <span class="panel-title">Drone Information</span>
+            <span class="flight-mode" id="flightMode">OFFLINE</span>
+
+            <div class="telemetry-grid">
+              <div class="val-box"><span class="val" id="alt">0</span><span class="unit">m</span><span class="lbl">Altitude</span></div>
+              <div class="val-box"><span class="val" id="yaw">0</span><span class="unit">m/s</span><span class="lbl">Yaw</span></div>
+              <div class="val-box"><span class="val" id="speed">0</span><span class="unit">m/s</span><span class="lbl">Air Speed</span></div>
+              <div class="val-box"><span class="val" id="gnd">0</span><span class="unit">m</span><span class="lbl">Gnd Speed</span></div>
+            </div>
+          </div>
+
+          <div style="border-left: 1px solid #333; padding-left: 20px">
+            <span class="panel-title">GPS Status</span>
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px"><span style="font-size: 24px" id="sats">0</span> Sat | HDOP: 0.8</div>
+
+            <span class="panel-title">Detection Data</span>
+            <div class="detect-list" id="detectList">
+              <div style="text-align: center; padding: 20px; color: gray">No Data Available</div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <aside class="sidebar-right">
+        <span class="panel-title">Detection Log</span>
+        <div class="log-container" id="logContainer">
+          <div style="text-align: center; padding-top: 50px; color: gray">Waiting for connection...</div>
+        </div>
+      </aside>
+    </div>
+
+    <script>
+      let isConnected = false;
+      let intervalId;
+
+      // Data Gambar
+      const imgDisconnected = "https://placehold.co/800x450/111111/444444?text=DRONE+OFFLINE+%2F+NO+SIGNAL";
+      // Gambar banjir simulasi
+      const imgConnected = "https://images.unsplash.com/photo-1547683905-f686c993aee5?q=80&w=1000&auto=format&fit=crop";
+
+      // Fungsi Toggle Connect/Disconnect
+      function toggleConnection() {
+        const btn = document.getElementById("btnConnect");
+        const feed = document.getElementById("feedImage");
+        const overlays = document.getElementById("overlays");
+        const modeText = document.getElementById("flightMode");
+
+        if (!isConnected) {
+          // START CONNECTING
+          isConnected = true;
+          btn.innerText = "🛑 Disconnect";
+          btn.classList.add("connected");
+
+          // Ganti Gambar ke Banjir
+          feed.src = imgConnected;
+          overlays.style.display = "block";
+          modeText.innerText = "MANUAL";
+          modeText.style.color = "#558b2f"; // Hijau
+
+          // Mulai Simulasi Data Bergerak
+          startSimulation();
+        } else {
+          // DISCONNECTING
+          isConnected = false;
+          btn.innerText = "🔊 Connect";
+          btn.classList.remove("connected");
+
+          // Ganti Gambar ke No Signal
+          feed.src = imgDisconnected;
+          overlays.style.display = "none";
+          modeText.innerText = "OFFLINE";
+          modeText.style.color = "gray";
+
+          // Stop Simulasi
+          stopSimulation();
+        }
+      }
+
+      function startSimulation() {
+        // Isi List Detection dengan Data Palsu
+        document.getElementById("detectList").innerHTML = `
+                <div class="row">
+                    <div>Coord 1<br><span style="color:#aaa">-32.825</span></div>
+                    <div>Dist<br><strong>2.5 m</strong></div>
+                    <div>Conf<br><span class="conf-score">90</span></div>
+                </div>
+                <div class="row">
+                    <div>Coord 2<br><span style="color:#aaa">-22.975</span></div>
+                    <div>Dist<br><strong>1.0 m</strong></div>
+                    <div>Conf<br><span class="conf-score">82</span></div>
+                </div>
+            `;
+
+        // Isi Log Kanan
+        document.getElementById("logContainer").innerHTML = `
+                 <div class="log-item">
+                    <div class="log-header">
+                        <span><span class="red-dot">●</span> Victim 1</span>
+                        <span>...</span>
+                    </div>
+                    <div class="log-meta">10:34:27 | -77.89877</div>
+                    <img src="https://images.unsplash.com/photo-1599939571322-792a32699160?w=200&auto=format&fit=crop" class="log-img">
+                </div>
+                 <div class="log-item">
+                    <div class="log-header">
+                        <span><span class="red-dot">●</span> Victim 2</span>
+                        <span>...</span>
+                    </div>
+                    <div class="log-meta">10:35:15 | -75.63777</div>
+                    <img src="https://images.unsplash.com/photo-1623164227786-9a25b293153b?w=200&auto=format&fit=crop" class="log-img">
+                </div>
+            `;
+
+        // Gerakkan Angka Telemetri
+        intervalId = setInterval(() => {
+          document.getElementById("alt").innerText = Math.floor(Math.random() * (96 - 92) + 92);
+          document.getElementById("yaw").innerText = Math.floor(Math.random() * (32 - 28) + 28);
+          document.getElementById("speed").innerText = Math.floor(Math.random() * (32 - 28) + 28);
+          document.getElementById("gnd").innerText = Math.floor(Math.random() * (96 - 92) + 92);
+          document.getElementById("sats").innerText = Math.floor(Math.random() * (14 - 10) + 10);
+        }, 800);
+      }
+
+      function stopSimulation() {
+        clearInterval(intervalId);
+        // Reset Angka ke 0
+        document.getElementById("alt").innerText = "0";
+        document.getElementById("yaw").innerText = "0";
+        document.getElementById("speed").innerText = "0";
+        document.getElementById("gnd").innerText = "0";
+        document.getElementById("sats").innerText = "0";
+
+        // Bersihkan List
+        document.getElementById("detectList").innerHTML = '<div style="text-align:center; padding: 20px; color: gray;">No Data Available</div>';
+        document.getElementById("logContainer").innerHTML = '<div style="text-align:center; padding-top: 50px; color: gray;">Waiting for connection...</div>';
+      }
+    </script>
+  </body>
+</html>
